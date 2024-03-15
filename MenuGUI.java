@@ -8,8 +8,10 @@ import java.time.LocalDate;
 public class MenuGUI extends JFrame {
     private JPanel menuPanel;
     private JButton orderButton;
+    private int cust_id;
 
-    public MenuGUI() {
+    public MenuGUI(int id) {
+        this.cust_id = id;
         setTitle("Menu Items by Restaurant");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(600, 400);
@@ -113,6 +115,7 @@ public class MenuGUI extends JFrame {
         LocalDate currentDate = LocalDate.now();
         // Print the date
         System.out.println("Order Date: " + currentDate);
+        System.out.println("Customer ID: " + this.cust_id);
 
         StringBuilder orderDetails = new StringBuilder("Order Details:\n");
         double totalAmount = 0.0; // Initialize total amount
@@ -177,7 +180,7 @@ public class MenuGUI extends JFrame {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            MenuGUI menuGUI = new MenuGUI();
+            MenuGUI menuGUI = new MenuGUI(0);
             menuGUI.setVisible(true);
         });
     }
