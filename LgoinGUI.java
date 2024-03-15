@@ -39,10 +39,11 @@ public class LoginGUI extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 String phone = phoneField.getText();
                 String password = new String(passwordField.getPassword());
-                if (validateLogin(phone, password)) {
+                int id = validateLogin(phone, password);
+                if (id != -1) {
                     dispose(); // Close the login window
                     // Open the menu page
-                    MenuGUI menuGUI = new MenuGUI();
+                    MenuGUI menuGUI = new MenuGUI(id);
                     menuGUI.setVisible(true);
                 } else {
                     JOptionPane.showMessageDialog(LoginGUI.this, "Invalid username or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
@@ -51,17 +52,28 @@ public class LoginGUI extends JFrame {
         });
     }
 
-    private boolean validateLogin(String phone, String password) {
+    private int validateLogin(String phone, String password) {
         String query = "SELECT * FROM customers WHERE phone = ? AND password = ?";
         try (Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/DELIVERY_MANAGEMENT", "root", "sql@123");
              PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, phone);
             preparedStatement.setString(2, password);
             ResultSet resultSet = preparedStatement.executeQuery();
-            return resultSet.next();
+
+            if(resultSet.next()){
+                String columnValue = resultSet.getString("cust_id");
+//                System.out.println(columnValue);
+                try{
+                    return Integer.parseInt(columnValue);
+                }catch(NumberFormatException e){
+                    System.out.println(e.getMessage());
+                }
+            }
+            return -1;
         } catch (SQLException ex) {
-            ex.printStackTrace();
-            return false;
+            System.out.println(ex);
+//            ex.printStackTrace();
+            return -1;
         }
     }
 
