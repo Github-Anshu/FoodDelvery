@@ -31,15 +31,37 @@ public class MenuGUI extends JFrame {
             }
         });
 
+        JButton viewOrdersButton = new JButton("View Orders");
+        viewOrdersButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Implement the action for viewing orders
+                // For now, let's just print a message
+                System.out.println("View Orders button clicked");
+            }
+        });
+
         JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new GridLayout(2, 1)); // Adjust the layout to accommodate both buttons
         buttonPanel.add(orderButton);
+        buttonPanel.add(viewOrdersButton); // Add the View Orders button
 
         setLayout(new BorderLayout());
         add(scrollPane, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.EAST);
 
+        viewOrdersButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Create and display the second application when the button is clicked
+                OrdersView ordersView = new OrdersView(id);
+                ordersView.setVisible(true);
+            }
+        });
+
         displayMenuItems();
     }
+
 
     private void displayMenuItems() {
         try (
@@ -160,14 +182,18 @@ public class MenuGUI extends JFrame {
                                         double amount = price * quantity;
                                         restaurantTotalAmount += amount; // Update total amount for this restaurant
                                         totalAmount += amount; // Update overall total amount
-                                        orderDetails.append("Item: ").append(itemNameLabel.getText()).append("\n");
+                                        String temp = itemNameLabel.getText();
+                                        int idx = temp.indexOf('-');
+                                        temp = temp.substring(0, idx);
+                                        System.out.println("#####################" + temp);
+                                        orderDetails.append("Item: ").append(temp).append("\n");
                                         orderDetails.append("Quantity: ").append(quantity).append("\n");
                                         orderDetails.append("Amount: ").append(amount).append("\n\n");
 
                                         // Insert suborder details into the database
                                         try (PreparedStatement suborderStatement = connection.prepareStatement(
                                                 "INSERT INTO suborder (item_name, order_id, item_price, quantity, amount, restaurant_id, order_date, cust_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
-                                            suborderStatement.setString(1, itemNameLabel.getText());
+                                            suborderStatement.setString(1, temp);
                                             suborderStatement.setInt(2, generateOrderId());
                                             suborderStatement.setDouble(3, price);
                                             suborderStatement.setInt(4, quantity);
@@ -219,6 +245,7 @@ public class MenuGUI extends JFrame {
     // Helper method to extract price from item name label
     private double getPriceFromLabel(JLabel itemNameLabel) {
         String text = itemNameLabel.getText();
+        System.out.println("##########"+text);
         String priceString = text.substring(text.lastIndexOf("$") + 1).trim();
         return Double.parseDouble(priceString);
     }
