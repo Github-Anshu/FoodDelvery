@@ -25,12 +25,14 @@ public class LoginGUI extends JFrame {
         JLabel passwordLabel = new JLabel("Password:");
         passwordField = new JPasswordField();
         JButton loginButton = new JButton("Login");
+        JButton newUserButton = new JButton("New User");
 
         panel.add(phoneLabel);
         panel.add(phoneField);
         panel.add(passwordLabel);
         panel.add(passwordField);
         panel.add(loginButton);
+        panel.add(newUserButton);
 
         add(panel);
 
@@ -50,6 +52,13 @@ public class LoginGUI extends JFrame {
                 }
             }
         });
+
+        newUserButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                openNewUserWindow();
+            }
+        });
     }
 
     private int validateLogin(String phone, String password) {
@@ -62,19 +71,22 @@ public class LoginGUI extends JFrame {
 
             if(resultSet.next()){
                 String columnValue = resultSet.getString("cust_id");
-//                System.out.println(columnValue);
                 try{
                     return Integer.parseInt(columnValue);
-                }catch(NumberFormatException e){
+                } catch(NumberFormatException e) {
                     System.out.println(e.getMessage());
                 }
             }
             return -1;
         } catch (SQLException ex) {
             System.out.println(ex);
-//            ex.printStackTrace();
             return -1;
         }
+    }
+
+    private void openNewUserWindow() {
+        NewUserGUI newUserGUI = new NewUserGUI();
+        newUserGUI.setVisible(true);
     }
 
     public static void main(String[] args) {
