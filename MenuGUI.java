@@ -1,9 +1,11 @@
+import java.time.LocalTime;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.*;
 import java.time.LocalDate;
+import java.sql.Date;
 
 public class MenuGUI extends JFrame {
     private JPanel menuPanel;
@@ -111,8 +113,10 @@ public class MenuGUI extends JFrame {
     }
 
     private void placeOrder() {
+
         // Get current date
         LocalDate currentDate = LocalDate.now();
+        Date date = new Date(System.currentTimeMillis());
         // Print the date
         System.out.println("Order Date: " + currentDate);
         System.out.println("Customer ID: " + this.cust_id);
@@ -120,56 +124,97 @@ public class MenuGUI extends JFrame {
         StringBuilder orderDetails = new StringBuilder("Order Details:\n");
         double totalAmount = 0.0; // Initialize total amount
         String currentRestaurant = null;
-        try (
-                Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/DELIVERY_MANAGEMENT", "root", "sql@123");
-                PreparedStatement restaurantStatement = connection.prepareStatement(
-                        "SELECT r.restaurant_id, r.name AS restaurant_name " +
-                                "FROM restaurants r " +
-                                "ORDER BY r.name");
-                ResultSet restaurantResultSet = restaurantStatement.executeQuery()
-        ) {
-            while (restaurantResultSet.next()) {
-                int restaurantId = restaurantResultSet.getInt("restaurant_id");
-                String restaurantName = restaurantResultSet.getString("restaurant_name");
-                boolean itemsFound = false; // Flag to check if items are available for this restaurant
-                Component[] restaurantPanels = menuPanel.getComponents();
-                for (Component restaurantPanel : restaurantPanels) {
-                    if (restaurantPanel instanceof JPanel && restaurantName.equals(((JPanel) restaurantPanel).getName())) {
-                        Component[] itemPanels = ((JPanel) restaurantPanel).getComponents();
-                        for (Component itemPanel : itemPanels) {
-                            if (itemPanel instanceof JPanel) {
-                                JLabel itemNameLabel = (JLabel) ((JPanel) itemPanel).getComponent(0);
-                                JPanel quantityPanel = (JPanel) ((JPanel) itemPanel).getComponent(1);
-                                JLabel quantityLabel = (JLabel) quantityPanel.getComponent(0);
-                                int quantity = Integer.parseInt(quantityLabel.getText());
-                                if (quantity > 0) {
-                                    if (!itemsFound) {
-                                        // Append restaurant details only if items are available for this restaurant
-                                        currentRestaurant = restaurantName;
-                                        orderDetails.append("Restaurant ID: ").append(restaurantId).append("\n");
-                                        orderDetails.append("Restaurant Name: ").append(restaurantName).append("\n");
-                                        itemsFound = true;
+        try (Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/DELIVERY_MANAGEMENT", "root", "sql@123")) {
+            connection.setAutoCommit(false); // Start a transaction
+
+            try (PreparedStatement restaurantStatement = connection.prepareStatement(
+                    "SELECT r.restaurant_id, r.name AS restaurant_name " +
+                            "FROM restaurants r " +
+                            "ORDER BY r.name");
+                 ResultSet restaurantResultSet = restaurantStatement.executeQuery()) {
+                while (restaurantResultSet.next()) {
+                    int restaurantId = restaurantResultSet.getInt("restaurant_id");
+                    String restaurantName = restaurantResultSet.getString("restaurant_name");
+                    boolean itemsFound = false; // Flag to check if items are available for this restaurant
+                    double restaurantTotalAmount = 0.0; // Initialize total amount for this restaurant
+
+                    Component[] restaurantPanels = menuPanel.getComponents();
+                    for (Component restaurantPanel : restaurantPanels) {
+                        if (restaurantPanel instanceof JPanel && restaurantName.equals(((JPanel) restaurantPanel).getName())) {
+                            Component[] itemPanels = ((JPanel) restaurantPanel).getComponents();
+                            for (Component itemPanel : itemPanels) {
+                                if (itemPanel instanceof JPanel) {
+                                    JLabel itemNameLabel = (JLabel) ((JPanel) itemPanel).getComponent(0);
+                                    JPanel quantityPanel = (JPanel) ((JPanel) itemPanel).getComponent(1);
+                                    JLabel quantityLabel = (JLabel) quantityPanel.getComponent(0);
+                                    int quantity = Integer.parseInt(quantityLabel.getText());
+                                    if (quantity > 0) {
+                                        if (!itemsFound) {
+                                            // Append restaurant details only if items are available for this restaurant
+                                            currentRestaurant = restaurantName;
+                                            orderDetails.append("Restaurant ID: ").append(restaurantId).append("\n");
+                                            orderDetails.append("Restaurant Name: ").append(restaurantName).append("\n");
+                                            itemsFound = true;
+                                        }
+                                        double price = getPriceFromLabel(itemNameLabel);
+                                        double amount = price * quantity;
+                                        restaurantTotalAmount += amount; // Update total amount for this restaurant
+                                        totalAmount += amount; // Update overall total amount
+                                        orderDetails.append("Item: ").append(itemNameLabel.getText()).append("\n");
+                                        orderDetails.append("Quantity: ").append(quantity).append("\n");
+                                        orderDetails.append("Amount: ").append(amount).append("\n\n");
+
+                                        // Insert suborder details into the database
+                                        try (PreparedStatement suborderStatement = connection.prepareStatement(
+                                                "INSERT INTO suborder (item_name, order_id, item_price, quantity, amount, restaurant_id, order_date, cust_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
+                                            suborderStatement.setString(1, itemNameLabel.getText());
+                                            suborderStatement.setInt(2, generateOrderId());
+                                            suborderStatement.setDouble(3, price);
+                                            suborderStatement.setInt(4, quantity);
+                                            suborderStatement.setDouble(5, amount);
+                                            suborderStatement.setInt(6, restaurantId);
+                                            suborderStatement.setDate(7, date);
+                                            suborderStatement.setInt(8, this.cust_id);
+                                            suborderStatement.executeUpdate();
+                                        }
+                                        // Reset quantity to zero
+                                        quantityLabel.setText("0");
                                     }
-                                    double price = getPriceFromLabel(itemNameLabel);
-                                    double amount = price * quantity;
-                                    totalAmount += amount; // Update total amount
-                                    orderDetails.append("Item: ").append(itemNameLabel.getText()).append("\n");
-                                    orderDetails.append("Quantity: ").append(quantity).append("\n");
-                                    orderDetails.append("Amount: ").append(amount).append("\n\n");
-                                    // Reset quantity to zero
-                                    quantityLabel.setText("0");
                                 }
                             }
                         }
                     }
+                    if (restaurantTotalAmount > 0) {
+                        // Print total amount for this restaurant
+                        orderDetails.append("Total Amount for ").append(restaurantName).append(": ").append(restaurantTotalAmount).append("\n\n");
+                    }
                 }
+                // Commit the transaction if successful
+                connection.commit();
+            } catch (SQLException e) {
+                // Rollback the transaction if any error occurs
+                connection.rollback();
+                e.printStackTrace();
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        orderDetails.append("Total Amount: ").append(totalAmount); // Append total amount
+        orderDetails.append("Overall Total Amount: ").append(totalAmount); // Append overall total amount
         System.out.println(orderDetails.toString());
     }
+
+    // Helper method to generate a unique order ID
+    private int generateOrderId() {
+        // Implement your logic to generate a unique order ID, you can use a database sequence or other techniques
+        // For simplicity, let's just return a random number here
+        LocalTime time = LocalTime.now();
+        int seconds = time.getSecond();
+        int minutes = time.getMinute();
+        int hours = time.getHour();
+        return hours*10000 + minutes*100 + seconds;
+    }
+
+
 
     // Helper method to extract price from item name label
     private double getPriceFromLabel(JLabel itemNameLabel) {
